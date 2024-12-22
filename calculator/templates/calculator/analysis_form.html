@@ -1,0 +1,143 @@
+{% extends 'calculator/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}New Analysis{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">New Economic Analysis</h2>
+        
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">Basic Information</h4>
+                </div>
+                <div class="card-body">
+                    {% crispy form %}
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">Pre-Injury Earnings</h4>
+                </div>
+                <div class="card-body">
+                    {{ pre_injury_formset.management_form }}
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Portion of Year</th>
+                                <th>Age</th>
+                                <th>Wage Base</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pre-injury-rows">
+                            {% for form in pre_injury_formset %}
+                                <tr class="pre-injury-row">
+                                    <td>{{ form.year|as_crispy_field }}</td>
+                                    <td>{{ form.portion_of_year|as_crispy_field }}</td>
+                                    <td>{{ form.age|as_crispy_field }}</td>
+                                    <td>{{ form.wage_base|as_crispy_field }}</td>
+                                    <td>{{ form.DELETE|as_crispy_field }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-secondary" id="add-pre-injury-row">Add Pre-Injury Row</button>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">Post-Injury Earnings</h4>
+                </div>
+                <div class="card-body">
+                    {{ post_injury_formset.management_form }}
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Portion of Year</th>
+                                <th>Age</th>
+                                <th>Wage Base</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody id="post-injury-rows">
+                            {% for form in post_injury_formset %}
+                                <tr class="post-injury-row">
+                                    <td>{{ form.year|as_crispy_field }}</td>
+                                    <td>{{ form.portion_of_year|as_crispy_field }}</td>
+                                    <td>{{ form.age|as_crispy_field }}</td>
+                                    <td>{{ form.wage_base|as_crispy_field }}</td>
+                                    <td>{{ form.DELETE|as_crispy_field }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-secondary" id="add-post-injury-row">Add Post-Injury Row</button>
+                </div>
+            </div>
+
+            <div class="text-end">
+                <button type="submit" class="btn btn-primary">Calculate Results</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function updateFormIndex(element, prefix, index) {
+        let id_regex = new RegExp('(' + prefix + '-\\d+-)');
+        let replacement = prefix + '-' + index + '-';
+        
+        element.find(':input').each(function() {
+            if ($(this).attr('id')) {
+                $(this).attr('id', $(this).attr('id').replace(id_regex, replacement));
+            }
+            if ($(this).attr('name')) {
+                $(this).attr('name', $(this).attr('name').replace(id_regex, replacement));
+            }
+        });
+        
+        element.find('label').each(function() {
+            if ($(this).attr('for')) {
+                $(this).attr('for', $(this).attr('for').replace(id_regex, replacement));
+            }
+        });
+    }
+
+    function addFormRow(prefix, container) {
+        let totalForms = $('#id_' + prefix + '-TOTAL_FORMS');
+        let newIndex = parseInt(totalForms.val());
+        let template = container.find('tr:first').clone(true);
+        
+        template.find(':input').each(function() {
+            if ($(this).attr('type') != 'hidden') {
+                $(this).val('');
+            }
+        });
+        
+        updateFormIndex(template, prefix, newIndex);
+        container.append(template);
+        totalForms.val(newIndex + 1);
+    }
+
+    $(document).ready(function() {
+        $('#add-pre-injury-row').click(function() {
+            addFormRow('pre_injury_formset', $('#pre-injury-rows'));
+        });
+
+        $('#add-post-injury-row').click(function() {
+            addFormRow('post_injury_formset', $('#post-injury-rows'));
+        });
+    });
+</script>
+{% endblock %}
