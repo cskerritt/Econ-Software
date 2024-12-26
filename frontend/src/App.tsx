@@ -1,39 +1,49 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Layout from './components/Layout';
+import { Container, AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
 import NewAnalysis from './pages/NewAnalysis';
-import AnalysisResults from './pages/AnalysisResults';
+import AnalysesList from './pages/AnalysesList';
+import EvalueeList from './components/EvalueeList';
+import EvalueeForm from './components/EvalueeForm';
+import HealthcarePlan from './pages/HealthcarePlan';
 
-const App: React.FC = () => {
+function App() {
   return (
     <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={
-            <div className="text-center py-12">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                Economic Analysis Calculator
-              </h1>
-              <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-                Calculate pre-injury and post-injury earnings based on worklife expectancy,
-                growth rates, and adjustment factors.
-              </p>
-              <div className="space-y-4">
-                <Link
-                  to="/new"
-                  className="inline-block px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  Start New Analysis
-                </Link>
-              </div>
-            </div>
-          } />
-          <Route path="/new" element={<NewAnalysis />} />
-          <Route path="/analysis/:id" element={<AnalysisResults />} />
-        </Routes>
-      </Layout>
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Economic Analysis Calculator
+          </Typography>
+          <Button color="inherit" component={Link} to="/analyses">
+            Analyses
+          </Button>
+          <Button color="inherit" component={Link} to="/evaluees">
+            Evaluees
+          </Button>
+          <Button color="inherit" component={Link} to="/healthcare">
+            Healthcare
+          </Button>
+        </Toolbar>
+      </AppBar>
+      
+      <Container>
+        <Box sx={{ mt: 4 }}>
+          <Routes>
+            <Route path="/" element={<AnalysesList />} />
+            <Route path="/analyses" element={<AnalysesList />} />
+            <Route path="/analysis/new" element={<NewAnalysis />} />
+            <Route path="/analysis/:id" element={<NewAnalysis />} />
+            <Route path="/analysis/:id/edit" element={<NewAnalysis />} />
+            <Route path="/evaluees" element={<EvalueeList />} />
+            <Route path="/evaluees/new" element={<EvalueeForm />} />
+            <Route path="/evaluees/:id" element={<EvalueeForm />} />
+            <Route path="/evaluees/:id/analysis/new" element={<NewAnalysis />} />
+            <Route path="/healthcare" element={<HealthcarePlan />} />
+          </Routes>
+        </Box>
+      </Container>
     </Router>
   );
-};
+}
 
 export default App;
