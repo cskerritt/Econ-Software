@@ -1,0 +1,209 @@
+{% extends "calculator/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Economic Analysis Results</h2>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Basic Information</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Date of Birth:</strong><br>
+                    {{ analysis.date_of_birth|date:"M d, Y" }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Date of Injury:</strong><br>
+                    {{ analysis.date_of_injury|date:"M d, Y" }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Date of Report:</strong><br>
+                    {{ analysis.date_of_report|date:"M d, Y" }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Worklife End Date:</strong><br>
+                    {{ analysis.worklife_end_date|date:"M d, Y" }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Pre-Injury Results</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Portion (%)</th>
+                            <th>Age</th>
+                            <th>Base Wage</th>
+                            <th>Gross Earnings</th>
+                            <th>Adjusted Earnings</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in pre_injury_results %}
+                        <tr>
+                            <td>{{ row.year }}</td>
+                            <td>{{ row.portion|floatformat:1 }}</td>
+                            <td>{{ row.age|floatformat:1 }}</td>
+                            <td>${{ row.wage_base|floatformat:2 }}</td>
+                            <td>${{ row.gross_earnings|floatformat:2 }}</td>
+                            <td>${{ row.adjusted_earnings|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5" class="text-end"><strong>Total:</strong></td>
+                            <td><strong>${{ pre_injury_total|floatformat:2 }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Post-Injury Results</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Portion (%)</th>
+                            <th>Age</th>
+                            <th>Base Wage</th>
+                            <th>Gross Earnings</th>
+                            <th>Adjusted Earnings</th>
+                            <th>Present Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in post_injury_results %}
+                        <tr>
+                            <td>{{ row.year }}</td>
+                            <td>{{ row.portion|floatformat:1 }}</td>
+                            <td>{{ row.age|floatformat:1 }}</td>
+                            <td>${{ row.wage_base|floatformat:2 }}</td>
+                            <td>${{ row.gross_earnings|floatformat:2 }}</td>
+                            <td>${{ row.adjusted_earnings|floatformat:2 }}</td>
+                            <td>${{ row.present_value|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5" class="text-end"><strong>Future Total:</strong></td>
+                            <td><strong>${{ post_injury_total|floatformat:2 }}</strong></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td colspan="6" class="text-end"><strong>Present Value Total:</strong></td>
+                            <td><strong>${{ post_injury_present_total|floatformat:2 }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% if analysis.include_health_insurance %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Health Insurance Results</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Portion (%)</th>
+                            <th>Premium</th>
+                            <th>Yearly Value</th>
+                            <th>Present Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in health_insurance_results %}
+                        <tr>
+                            <td>{{ row.year }}</td>
+                            <td>{{ row.portion|floatformat:1 }}</td>
+                            <td>${{ row.premium|floatformat:2 }}</td>
+                            <td>${{ row.yearly_value|floatformat:2 }}</td>
+                            <td>${{ row.present_value|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>Future Total:</strong></td>
+                            <td><strong>${{ hi_future_total|floatformat:2 }}</strong></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>Present Value Total:</strong></td>
+                            <td><strong>${{ hi_present_total|floatformat:2 }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Summary</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Earnings Loss</h5>
+                    <table class="table">
+                        <tr>
+                            <td>Pre-Injury Total:</td>
+                            <td class="text-end">${{ pre_injury_total|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td>Post-Injury Total:</td>
+                            <td class="text-end">${{ post_injury_total|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Net Loss:</strong></td>
+                            <td class="text-end"><strong>${{ pre_injury_total|subtract:post_injury_total|floatformat:2 }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+                {% if analysis.include_health_insurance %}
+                <div class="col-md-6">
+                    <h5>Health Insurance</h5>
+                    <table class="table">
+                        <tr>
+                            <td>Future Total:</td>
+                            <td class="text-end">${{ hi_future_total|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td>Present Value:</td>
+                            <td class="text-end">${{ hi_present_total|floatformat:2 }}</td>
+                        </tr>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <a href="{% url 'analysis-create' %}" class="btn btn-primary">Create New Analysis</a>
+</div>
+{% endblock %}

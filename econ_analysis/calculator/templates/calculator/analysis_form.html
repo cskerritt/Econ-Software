@@ -1,0 +1,84 @@
+{% extends "calculator/base.html" %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<h2>New Economic Analysis</h2>
+<form method="post" class="mt-4">
+    {% csrf_token %}
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Basic Information</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">{{ form.date_of_birth|as_crispy_field }}</div>
+                <div class="col-md-6">{{ form.date_of_injury|as_crispy_field }}</div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">{{ form.date_of_report|as_crispy_field }}</div>
+                <div class="col-md-6">{{ form.worklife_end_date|as_crispy_field }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Pre-Injury Information</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">{{ form.pre_growth_rate|as_crispy_field }}</div>
+                <div class="col-md-4">{{ form.pre_aif|as_crispy_field }}</div>
+                <div class="col-md-4">{{ form.pre_base_earnings|as_crispy_field }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Post-Injury Information</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">{{ form.post_growth_rate|as_crispy_field }}</div>
+                <div class="col-md-4">{{ form.post_aif|as_crispy_field }}</div>
+                <div class="col-md-4">{{ form.post_base_earnings|as_crispy_field }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Health Insurance</h4>
+        </div>
+        <div class="card-body">
+            {{ form.include_health_insurance|as_crispy_field }}
+            <div id="health-insurance-section" style="display: none;">
+                <div class="row">
+                    <div class="col-md-4">{{ health_insurance_form.hi_base_premium|as_crispy_field }}</div>
+                    <div class="col-md-4">{{ health_insurance_form.hi_growth_rate|as_crispy_field }}</div>
+                    <div class="col-md-4">{{ health_insurance_form.hi_discount_rate|as_crispy_field }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Calculate Results</button>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Toggle Health Insurance section
+    $('#id_include_health_insurance').change(function() {
+        $('#health-insurance-section').toggle(this.checked);
+    });
+
+    // Initialize Health Insurance section visibility
+    $('#health-insurance-section').toggle($('#id_include_health_insurance').is(':checked'));
+});
+</script>
+{% endblock %}
