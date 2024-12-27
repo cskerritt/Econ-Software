@@ -118,29 +118,75 @@ const NewAnalysis: React.FC = () => {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     
+    // Evaluee Validation
     if (!formData.evaluee) {
       newErrors.evaluee = 'Evaluee is required';
     }
-    if (!formData.worklife_expectancy) {
-      newErrors.worklife_expectancy = 'Worklife expectancy is required';
+
+    // Date Validations
+    if (!formData.date_of_injury) {
+      newErrors.date_of_injury = 'Date of injury is required';
+    } else {
+      const injuryDate = new Date(formData.date_of_injury);
+      const today = new Date();
+      
+      // Ensure date of injury is not in the future
+      if (injuryDate > today) {
+        newErrors.date_of_injury = 'Date of injury cannot be in the future';
+      }
     }
-    if (!formData.years_to_final_separation) {
-      newErrors.years_to_final_separation = 'Years to final separation is required';
+
+    if (!formData.date_of_report) {
+      newErrors.date_of_report = 'Date of report is required';
+    } else {
+      const reportDate = new Date(formData.date_of_report);
+      const injuryDate = formData.date_of_injury ? new Date(formData.date_of_injury) : null;
+      const today = new Date();
+      
+      // Ensure date of report is not in the future
+      if (reportDate > today) {
+        newErrors.date_of_report = 'Date of report cannot be in the future';
+      }
+      
+      // Ensure date of report is after date of injury
+      if (injuryDate && reportDate < injuryDate) {
+        newErrors.date_of_report = 'Date of report must be after date of injury';
+      }
     }
-    if (!formData.life_expectancy) {
-      newErrors.life_expectancy = 'Life expectancy is required';
+
+    // Numeric Field Validations
+    const numericFields = [
+      'worklife_expectancy', 
+      'years_to_final_separation', 
+      'life_expectancy', 
+      'pre_injury_base_wage', 
+      'post_injury_base_wage', 
+      'growth_rate', 
+      'adjustment_factor'
+    ];
+
+    numericFields.forEach(field => {
+      const value = formData[field as keyof FormData];
+      if (typeof value === 'number' && (value <= 0 || isNaN(value))) {
+        newErrors[field] = `${field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} must be a positive number`;
+      }
+    });
+
+    // Optional but conditional field validations
+    if (formData.apply_discounting && (formData.discount_rate === null || formData.discount_rate <= 0)) {
+      newErrors.discount_rate = 'Discount rate must be a positive number when discounting is applied';
     }
-    if (!formData.pre_injury_base_wage) {
-      newErrors.pre_injury_base_wage = 'Pre-injury base wage is required';
+
+    if (formData.include_health_insurance && formData.health_insurance_base <= 0) {
+      newErrors.health_insurance_base = 'Health insurance base must be a positive number';
     }
-    if (!formData.post_injury_base_wage) {
-      newErrors.post_injury_base_wage = 'Post-injury base wage is required';
+
+    if (formData.include_health_insurance && formData.health_cost_inflation_rate <= 0) {
+      newErrors.health_cost_inflation_rate = 'Health cost inflation rate must be a positive number';
     }
-    if (!formData.growth_rate) {
-      newErrors.growth_rate = 'Growth rate is required';
-    }
-    if (!formData.adjustment_factor) {
-      newErrors.adjustment_factor = 'Adjustment factor is required';
+
+    if (formData.include_pension && formData.pension_base <= 0) {
+      newErrors.pension_base = 'Pension base must be a positive number';
     }
 
     setErrors(newErrors);
@@ -179,26 +225,30 @@ const NewAnalysis: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    // Validate form and prevent submission if invalid
+    const isValid = validateForm();
+    if (!isValid) {
       return;
     }
 
     try {
-      const submitData: any = {
+      setLoading(true);
+      const payload = {
         ...formData,
         date_of_injury: formData.date_of_injury?.toISOString().split('T')[0],
         date_of_report: formData.date_of_report?.toISOString().split('T')[0],
       };
 
-      if (id) {
-        await analysisService.updateAnalysis(parseInt(id), submitData);
-      } else {
-        await analysisService.createAnalysis(submitData);
-      }
-      navigate('/analyses');
+      const response = id 
+        ? await analysisService.updateAnalysis(parseInt(id), payload)
+        : await analysisService.createAnalysis(payload);
+
+      navigate(`/analysis/${response.id}`);
     } catch (error) {
       console.error('Error submitting analysis:', error);
-      setErrors(prev => ({ ...prev, submit: 'Failed to create analysis' }));
+      // Add error handling logic here
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -216,9 +266,9 @@ const NewAnalysis: React.FC = () => {
         <Typography variant="h4" gutterBottom>
           {id ? 'Edit Analysis' : 'New Analysis'}
         </Typography>
-        {errors.submit && (
+        {Object.keys(errors).length > 0 && (
           <Alert severity="error" sx={{ mb: 2 }}>
-            {errors.submit}
+            Please correct the errors before submitting the form.
           </Alert>
         )}
         <Paper>
@@ -227,26 +277,27 @@ const NewAnalysis: React.FC = () => {
               <Grid container spacing={3}>
                 <Grid item xs={12}>
                   <TextField
+                    data-testid="evaluee-select"
                     select
                     fullWidth
                     label="Evaluee"
                     name="evaluee"
                     value={formData.evaluee}
-                    onChange={handleInputChange('evaluee')}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData(prev => ({
+                        ...prev,
+                        evaluee: value === '' ? '' : parseInt(value as string)
+                      }));
+                    }}
                     required
                     error={!!errors.evaluee}
                     helperText={errors.evaluee}
-                    inputProps={{
-                      'data-testid': 'evaluee-select',
-                      'aria-invalid': !!errors.evaluee
-                    }}
+                    aria-invalid={!!errors.evaluee}
                   >
-                    <MenuItem value="">
-                      <em>Select an evaluee</em>
-                    </MenuItem>
-                    {evaluees?.map((evaluee) => (
+                    {evaluees.map((evaluee) => (
                       <MenuItem key={evaluee.id} value={evaluee.id}>
-                        {evaluee.first_name} {evaluee.last_name}
+                        {`${evaluee.first_name} ${evaluee.last_name}`}
                       </MenuItem>
                     ))}
                   </TextField>
@@ -256,14 +307,17 @@ const NewAnalysis: React.FC = () => {
                     <DatePicker
                       label="Date of Injury"
                       value={formData.date_of_injury}
-                      onChange={handleDateChange('date_of_injury')}
-                      slotProps={{ 
-                        textField: { 
+                      onChange={(date) => setFormData(prev => ({ ...prev, date_of_injury: date }))}
+                      slotProps={{
+                        textField: {
                           fullWidth: true,
+                          required: true,
                           error: !!errors.date_of_injury,
                           helperText: errors.date_of_injury,
-                          inputProps: { 'data-testid': 'date-of-injury-input' }
-                        } 
+                          inputProps: {
+                            'aria-invalid': !!errors.date_of_injury
+                          }
+                        }
                       }}
                     />
                   </LocalizationProvider>
@@ -273,14 +327,17 @@ const NewAnalysis: React.FC = () => {
                     <DatePicker
                       label="Date of Report"
                       value={formData.date_of_report}
-                      onChange={handleDateChange('date_of_report')}
-                      slotProps={{ 
-                        textField: { 
+                      onChange={(date) => setFormData(prev => ({ ...prev, date_of_report: date }))}
+                      slotProps={{
+                        textField: {
                           fullWidth: true,
+                          required: true,
                           error: !!errors.date_of_report,
                           helperText: errors.date_of_report,
-                          inputProps: { 'data-testid': 'date-of-report-input' }
-                        } 
+                          inputProps: {
+                            'aria-invalid': !!errors.date_of_report
+                          }
+                        }
                       }}
                     />
                   </LocalizationProvider>
@@ -288,150 +345,173 @@ const NewAnalysis: React.FC = () => {
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
-                    label="Worklife Expectancy (years)"
-                    name="worklife_expectancy"
                     type="number"
+                    label="Worklife Expectancy"
                     value={formData.worklife_expectancy}
-                    onChange={handleInputChange('worklife_expectancy')}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      worklife_expectancy: parseFloat(e.target.value) 
+                    }))}
                     required
                     error={!!errors.worklife_expectancy}
                     helperText={errors.worklife_expectancy}
-                    data-testid="worklife-expectancy-input"
                     aria-invalid={!!errors.worklife_expectancy}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
-                    label="Years to Final Separation"
-                    name="years_to_final_separation"
                     type="number"
+                    label="Years to Final Separation"
                     value={formData.years_to_final_separation}
-                    onChange={handleInputChange('years_to_final_separation')}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      years_to_final_separation: parseFloat(e.target.value) 
+                    }))}
                     required
                     error={!!errors.years_to_final_separation}
                     helperText={errors.years_to_final_separation}
-                    data-testid="years-to-final-separation-input"
                     aria-invalid={!!errors.years_to_final_separation}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
-                    label="Life Expectancy (years)"
-                    name="life_expectancy"
                     type="number"
+                    label="Life Expectancy"
                     value={formData.life_expectancy}
-                    onChange={handleInputChange('life_expectancy')}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      life_expectancy: parseFloat(e.target.value) 
+                    }))}
                     required
                     error={!!errors.life_expectancy}
                     helperText={errors.life_expectancy}
-                    data-testid="life-expectancy-input"
                     aria-invalid={!!errors.life_expectancy}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Pre-Injury Base Wage"
-                    name="pre_injury_base_wage"
                     type="number"
+                    label="Pre-Injury Base Wage"
                     value={formData.pre_injury_base_wage}
-                    onChange={handleInputChange('pre_injury_base_wage')}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      pre_injury_base_wage: parseFloat(e.target.value) 
+                    }))}
                     required
                     error={!!errors.pre_injury_base_wage}
                     helperText={errors.pre_injury_base_wage}
-                    data-testid="pre-injury-base-wage-input"
                     aria-invalid={!!errors.pre_injury_base_wage}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Post-Injury Base Wage"
-                    name="post_injury_base_wage"
                     type="number"
+                    label="Post-Injury Base Wage"
                     value={formData.post_injury_base_wage}
-                    onChange={handleInputChange('post_injury_base_wage')}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      post_injury_base_wage: parseFloat(e.target.value) 
+                    }))}
                     required
                     error={!!errors.post_injury_base_wage}
                     helperText={errors.post_injury_base_wage}
-                    data-testid="post-injury-base-wage-input"
                     aria-invalid={!!errors.post_injury_base_wage}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
-                    label="Growth Rate (%)"
-                    name="growth_rate"
                     type="number"
+                    label="Growth Rate"
                     value={formData.growth_rate}
-                    onChange={handleInputChange('growth_rate')}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      growth_rate: parseFloat(e.target.value) 
+                    }))}
                     required
                     error={!!errors.growth_rate}
                     helperText={errors.growth_rate}
-                    data-testid="growth-rate-input"
                     aria-invalid={!!errors.growth_rate}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
-                    label="Adjustment Factor"
-                    name="adjustment_factor"
                     type="number"
+                    label="Adjustment Factor"
                     value={formData.adjustment_factor}
-                    onChange={handleInputChange('adjustment_factor')}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      adjustment_factor: parseFloat(e.target.value) 
+                    }))}
                     required
                     error={!!errors.adjustment_factor}
                     helperText={errors.adjustment_factor}
-                    data-testid="adjustment-factor-input"
                     aria-invalid={!!errors.adjustment_factor}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                   <TextField
                     fullWidth
-                    label="Discount Rate (%)"
-                    name="discount_rate"
                     type="number"
+                    label="Discount Rate"
                     value={formData.discount_rate || ''}
-                    onChange={handleInputChange('discount_rate')}
-                    data-testid="discount-rate-input"
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      discount_rate: parseFloat(e.target.value) || null 
+                    }))}
+                    error={!!errors.discount_rate}
+                    helperText={errors.discount_rate}
+                    aria-invalid={!!errors.discount_rate}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
+                    type="number"
                     label="Health Insurance Base"
-                    name="health_insurance_base"
-                    type="number"
                     value={formData.health_insurance_base}
-                    onChange={handleInputChange('health_insurance_base')}
-                    data-testid="health-insurance-base-input"
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      health_insurance_base: parseFloat(e.target.value) 
+                    }))}
+                    error={!!errors.health_insurance_base}
+                    helperText={errors.health_insurance_base}
+                    aria-invalid={!!errors.health_insurance_base}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Health Cost Inflation Rate (%)"
-                    name="health_cost_inflation_rate"
                     type="number"
+                    label="Health Cost Inflation Rate"
                     value={formData.health_cost_inflation_rate}
-                    onChange={handleInputChange('health_cost_inflation_rate')}
-                    data-testid="health-cost-inflation-rate-input"
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      health_cost_inflation_rate: parseFloat(e.target.value) 
+                    }))}
+                    error={!!errors.health_cost_inflation_rate}
+                    helperText={errors.health_cost_inflation_rate}
+                    aria-invalid={!!errors.health_cost_inflation_rate}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Pension Base"
-                    name="pension_base"
                     type="number"
+                    label="Pension Base"
                     value={formData.pension_base}
-                    onChange={handleInputChange('pension_base')}
-                    data-testid="pension-base-input"
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      pension_base: parseFloat(e.target.value) 
+                    }))}
+                    error={!!errors.pension_base}
+                    helperText={errors.pension_base}
+                    aria-invalid={!!errors.pension_base}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -441,8 +521,13 @@ const NewAnalysis: React.FC = () => {
                     label="Pension Type"
                     name="pension_type"
                     value={formData.pension_type}
-                    onChange={handleInputChange('pension_type')}
-                    data-testid="pension-type-select"
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      pension_type: e.target.value 
+                    }))}
+                    error={!!errors.pension_type}
+                    helperText={errors.pension_type}
+                    aria-invalid={!!errors.pension_type}
                   >
                     <MenuItem value="defined_benefit">Defined Benefit</MenuItem>
                     <MenuItem value="defined_contribution">Defined Contribution</MenuItem>

@@ -19,34 +19,7 @@ const AEFCalculator: React.FC<AEFCalculatorProps> = ({ onCalculate, initialValue
   });
 
   const [result, setResult] = useState<AEFSteps | null>(null);
-  const [errors, setErrors] = useState<Partial<Record<keyof AEFInputs, string>>>({});
-
-  const validateInputs = (): boolean => {
-    const newErrors: Partial<Record<keyof AEFInputs, string>> = {};
-    let isValid = true;
-
-    Object.entries(inputs).forEach(([key, value]) => {
-      if (key === 'applyPersonalConsumption') return;
-      
-      if (typeof value === 'number') {
-        if (value < 0) {
-          newErrors[key as keyof AEFInputs] = 'Value cannot be negative';
-          isValid = false;
-        }
-        if (key === 'base' && value === 0) {
-          newErrors.base = 'Base value cannot be zero';
-          isValid = false;
-        }
-        if (key === 'personalConsumption' && value > 100) {
-          newErrors.personalConsumption = 'Personal consumption cannot exceed 100%';
-          isValid = false;
-        }
-      }
-    });
-
-    setErrors(newErrors);
-    return isValid;
-  };
+  const [errors, setErrors] = useState<{ [key: string]: string[] }>({});
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -54,33 +27,75 @@ const AEFCalculator: React.FC<AEFCalculatorProps> = ({ onCalculate, initialValue
     if (type === 'checkbox') {
       setInputs(prev => ({
         ...prev,
-        [name]: checked
+        [name]: checked,
       }));
+      
+      // Clear personal consumption errors when disabled
+      if (!checked) {
+        setErrors(prev => {
+          const { personalConsumption, ...rest } = prev;
+          return rest;
+        });
+      }
     } else {
       const numValue = value === '' ? 0 : parseFloat(value);
       setInputs(prev => ({
         ...prev,
         [name]: numValue
       }));
-    }
 
-    // Clear error for the field being changed
-    if (errors[name as keyof AEFInputs]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: undefined
-      }));
+      // Validate the input immediately
+      const fieldErrors: string[] = [];
+      if (numValue < 0) {
+        fieldErrors.push('Value cannot be negative');
+      }
+      if (name === 'personalConsumption' && numValue > 100) {
+        fieldErrors.push('Personal consumption cannot exceed 100%');
+      }
+
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        if (fieldErrors.length > 0) {
+          newErrors[name] = fieldErrors;
+        } else {
+          delete newErrors[name];
+        }
+        return newErrors;
+      });
     }
   };
 
-  const calculateAEF = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     
-    if (!validateInputs()) {
-      return;
+    // Validate all inputs at once
+    const newErrors: { [key: string]: string[] } = {};
+    
+    Object.entries(inputs).forEach(([key, value]) => {
+      if (typeof value === 'number') {
+        const fieldErrors: string[] = [];
+        
+        if (value < 0) {
+          fieldErrors.push('Value cannot be negative');
+        }
+        if (key === 'personalConsumption' && value > 100) {
+          fieldErrors.push('Personal consumption cannot exceed 100%');
+        }
+        
+        if (fieldErrors.length > 0) {
+          newErrors[key] = fieldErrors;
+        }
+      }
+    });
+    
+    setErrors(newErrors);
+    
+    if (Object.keys(newErrors).length === 0) {
+      calculateAEF();
     }
+  };
 
+  const calculateAEF = () => {
     try {
       const base = inputs.base / 100;
       const wle = inputs.worklifeAdjustment / 100;
@@ -111,7 +126,7 @@ const AEFCalculator: React.FC<AEFCalculatorProps> = ({ onCalculate, initialValue
       console.error('Calculation error:', error);
       setErrors(prev => ({
         ...prev,
-        base: 'An error occurred during calculation'
+        base: ['An error occurred during calculation']
       }));
     }
   };
@@ -122,7 +137,7 @@ const AEFCalculator: React.FC<AEFCalculatorProps> = ({ onCalculate, initialValue
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
-      <form onSubmit={calculateAEF} className="space-y-6" role="form">
+      <form onSubmit={handleSubmit} className="space-y-6" role="form">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block mb-2" htmlFor="base">
@@ -141,9 +156,11 @@ const AEFCalculator: React.FC<AEFCalculatorProps> = ({ onCalculate, initialValue
               aria-invalid={!!errors.base}
               aria-describedby={errors.base ? 'base-error' : undefined}
             />
-            {errors.base && (
-              <p role="alert" id="base-error" className="text-red-500 text-sm mt-1">{errors.base}</p>
-            )}
+            {errors.base?.map((error, index) => (
+              <p key={`base-error-${index}`} role="alert" id={`base-error-${index}`} className="text-red-500 text-sm mt-1">
+                {error}
+              </p>
+            ))}
           </div>
 
           <div>
@@ -160,7 +177,14 @@ const AEFCalculator: React.FC<AEFCalculatorProps> = ({ onCalculate, initialValue
               className="w-full p-2 border rounded"
               required
               step="0.1"
+              aria-invalid={!!errors.worklifeAdjustment}
+              aria-describedby={errors.worklifeAdjustment ? 'worklifeAdjustment-error' : undefined}
             />
+            {errors.worklifeAdjustment?.map((error, index) => (
+              <p key={`worklifeAdjustment-error-${index}`} role="alert" id={`worklifeAdjustment-error-${index}`} className="text-red-500 text-sm mt-1">
+                {error}
+              </p>
+            ))}
           </div>
 
           <div>
@@ -177,7 +201,14 @@ const AEFCalculator: React.FC<AEFCalculatorProps> = ({ onCalculate, initialValue
               className="w-full p-2 border rounded"
               required
               step="0.1"
+              aria-invalid={!!errors.unemploymentFactor}
+              aria-describedby={errors.unemploymentFactor ? 'unemploymentFactor-error' : undefined}
             />
+            {errors.unemploymentFactor?.map((error, index) => (
+              <p key={`unemploymentFactor-error-${index}`} role="alert" id={`unemploymentFactor-error-${index}`} className="text-red-500 text-sm mt-1">
+                {error}
+              </p>
+            ))}
           </div>
 
           <div>
@@ -194,7 +225,14 @@ const AEFCalculator: React.FC<AEFCalculatorProps> = ({ onCalculate, initialValue
               className="w-full p-2 border rounded"
               required
               step="0.1"
+              aria-invalid={!!errors.incomeTaxRate}
+              aria-describedby={errors.incomeTaxRate ? 'incomeTaxRate-error' : undefined}
             />
+            {errors.incomeTaxRate?.map((error, index) => (
+              <p key={`incomeTaxRate-error-${index}`} role="alert" id={`incomeTaxRate-error-${index}`} className="text-red-500 text-sm mt-1">
+                {error}
+              </p>
+            ))}
           </div>
 
           <div>
@@ -211,21 +249,30 @@ const AEFCalculator: React.FC<AEFCalculatorProps> = ({ onCalculate, initialValue
               className="w-full p-2 border rounded"
               required
               step="0.1"
+              aria-invalid={!!errors.fringeBenefits}
+              aria-describedby={errors.fringeBenefits ? 'fringeBenefits-error' : undefined}
             />
+            {errors.fringeBenefits?.map((error, index) => (
+              <p key={`fringeBenefits-error-${index}`} role="alert" id={`fringeBenefits-error-${index}`} className="text-red-500 text-sm mt-1">
+                {error}
+              </p>
+            ))}
           </div>
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center">
-            <input
-              id="applyPersonalConsumption"
-              type="checkbox"
-              name="applyPersonalConsumption"
-              checked={inputs.applyPersonalConsumption}
-              onChange={handleInputChange}
-              className="mr-2"
-            />
-            <label htmlFor="applyPersonalConsumption">Apply Personal Consumption</label>
+          <div className="mb-4">
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                name="applyPersonalConsumption"
+                checked={inputs.applyPersonalConsumption}
+                onChange={handleInputChange}
+                className="form-checkbox"
+                aria-label="Apply Personal Consumption"
+              />
+              <span>Apply Personal Consumption</span>
+            </label>
           </div>
 
           {inputs.applyPersonalConsumption && (
@@ -240,17 +287,17 @@ const AEFCalculator: React.FC<AEFCalculatorProps> = ({ onCalculate, initialValue
                 name="personalConsumption"
                 value={inputs.personalConsumption}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className={`w-full p-2 border rounded ${!inputs.applyPersonalConsumption ? 'hidden' : ''}`}
                 required={inputs.applyPersonalConsumption}
                 step="0.1"
                 aria-invalid={!!errors.personalConsumption}
                 aria-describedby={errors.personalConsumption ? 'personalConsumption-error' : undefined}
               />
-              {errors.personalConsumption && (
-                <p role="alert" id="personalConsumption-error" className="text-red-500 text-sm mt-1">
-                  {errors.personalConsumption}
+              {errors.personalConsumption?.map((error, index) => (
+                <p key={`personalConsumption-error-${index}`} role="alert" id={`personalConsumption-error-${index}`} className="text-red-500 text-sm mt-1">
+                  {error}
                 </p>
-              )}
+              ))}
             </div>
           )}
         </div>
