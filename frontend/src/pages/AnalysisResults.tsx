@@ -13,7 +13,7 @@ const AnalysisResults: React.FC = (): JSX.Element => {
   const { id } = useParams<{ id: string }>();
   const [results, setResults] = useState<CalculationResults | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ message: string; status?: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState<DownloadState>({ excel: false, word: false });
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
@@ -24,23 +24,36 @@ const AnalysisResults: React.FC = (): JSX.Element => {
       if (!id) throw new Error('No analysis ID provided');
       const analysisResult = await analysisService.getAnalysis(parseInt(id));
       
-      // Only validate basic structure, let rendering errors propagate to error boundary
-      if (!analysisResult || !analysisResult.personal_info) {
+      // Validate data structure
+      if (!analysisResult || typeof analysisResult !== 'object') {
         throw new Error('Invalid analysis data structure');
+      }
+      
+      // Check for partial data
+      if (!analysisResult.personal_info || !analysisResult.exhibit1 || !analysisResult.exhibit2) {
+        setResults(analysisResult);
+        throw new Error('Some data could not be loaded');
       }
       
       setResults(analysisResult);
     } catch (err: any) {
+      let errorMessage = 'An error occurred';
+      
       if (err.response) {
-        setError({ 
-          message: err.response.data.detail || 'An error occurred',
-          status: err.response.status
-        });
-      } else if (err instanceof Error) {
-        setError({ message: err.message || 'Error loading analysis results' });
-      } else {
-        setError({ message: 'An unexpected error occurred' });
+        if (err.response.status === 404) {
+          errorMessage = 'Analysis not found';
+        } else if (err.response.status === 500) {
+          errorMessage = 'Internal server error';
+        } else {
+          errorMessage = err.response.data.detail || 'An error occurred';
+        }
+      } else if (err.message === 'Request timed out') {
+        errorMessage = 'Request timed out';
+      } else if (err.message === 'Network Error') {
+        errorMessage = 'Error loading analysis results';
       }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -216,12 +229,6 @@ const AnalysisResults: React.FC = (): JSX.Element => {
     </div>
   );
 
-  const ErrorFallback = ({ error }: FallbackProps): JSX.Element => (
-    <div data-testid="error-boundary" className="text-center p-8 text-red-600">
-      Something went wrong
-    </div>
-  );
-
   const renderContent = (): JSX.Element => {
     if (loading) {
       return <div className="text-center p-8">Loading...</div>;
@@ -231,7 +238,7 @@ const AnalysisResults: React.FC = (): JSX.Element => {
       return (
         <div className="text-center p-8">
           <div data-testid="error-message" className="text-red-600 mb-4">
-            {error.message}
+            {error}
           </div>
           <button
             data-testid="retry-button"
@@ -248,55 +255,66 @@ const AnalysisResults: React.FC = (): JSX.Element => {
       return <div className="text-center p-8">No results found</div>;
     }
 
-    try {
-      // Validate exhibit data before rendering
-      if (!results.exhibit1?.data?.rows || !results.exhibit2?.data?.rows) {
-        throw new Error('Failed to render analysis results');
-      }
-      
-      return (
-        <>
-          <div className="flex justify-end mb-4 space-x-4">
-            <button
-              data-testid="download-excel"
-              onClick={() => void handleDownload('excel')}
-              disabled={isDownloading.excel}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
-            >
-              {isDownloading.excel ? (
-                <span data-testid="download-loading">Downloading...</span>
-              ) : (
-                'Download Excel'
-              )}
-            </button>
-            <button
-              data-testid="download-word"
-              onClick={() => void handleDownload('word')}
-              disabled={isDownloading.word}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-            >
-              {isDownloading.word ? (
-                <span data-testid="download-loading">Downloading...</span>
-              ) : (
-                'Download Word'
-              )}
-            </button>
+    // Check for partial data
+    const hasPartialData = !results.personal_info || !results.exhibit1 || !results.exhibit2;
+    
+    return (
+      <>
+        <div className="flex justify-end mb-4 space-x-4">
+          <button
+            data-testid="download-excel"
+            onClick={() => void handleDownload('excel')}
+            disabled={isDownloading.excel}
+            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
+          >
+            {isDownloading.excel ? (
+              <span data-testid="download-loading">Downloading...</span>
+            ) : (
+              'Download Excel'
+            )}
+          </button>
+          <button
+            data-testid="download-word"
+            onClick={() => void handleDownload('word')}
+            disabled={isDownloading.word}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+          >
+            {isDownloading.word ? (
+              <span data-testid="download-loading">Downloading...</span>
+            ) : (
+              'Download Word'
+            )}
+          </button>
+        </div>
+        {downloadError && (
+          <div data-testid="download-error" className="text-red-600 mb-4">
+            {downloadError}
           </div>
-          {downloadError && (
-            <div data-testid="download-error" className="text-red-600 mb-4">
-              {downloadError}
-            </div>
-          )}
-          <h1 className="text-2xl font-bold text-center mb-8">Economic Analysis Results</h1>
-          {renderPersonalInfo(results)}
-          {renderPreInjuryTable(results)}
-          {renderPostInjuryTable(results)}
-        </>
-      );
-    } catch (err) {
-      throw new Error('Failed to render analysis results');
-    }
+        )}
+        {hasPartialData && (
+          <div data-testid="partial-data-warning" className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4">
+            Some data could not be loaded
+          </div>
+        )}
+        <h1 className="text-2xl font-bold text-center mb-8">Economic Analysis Results</h1>
+        {results.personal_info && renderPersonalInfo(results)}
+        {results.exhibit1?.data?.rows && renderPreInjuryTable(results)}
+        {results.exhibit2?.data?.rows && renderPostInjuryTable(results)}
+      </>
+    );
   };
+
+  const ErrorFallback = ({ error }: FallbackProps): JSX.Element => (
+    <div data-testid="error-boundary" className="text-center p-8">
+      <div className="text-red-600 mb-4">Something went wrong</div>
+      <button
+        onClick={() => void fetchResults()}
+        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+      >
+        Try again
+      </button>
+    </div>
+  );
 
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AEF Calculator Test</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/src/index.css">
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import React from 'react'
+    import ReactDOM from 'react-dom/client'
+    import AEFCalculator from '../src/components/AEFCalculator'
+    import '../src/index.css'
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      React.createElement(React.StrictMode, null,
+        React.createElement('div', { className: 'container mx-auto p-4' },
+          React.createElement(AEFCalculator)
+        )
+      )
+    )
+  </script>
+</body>
+</html>

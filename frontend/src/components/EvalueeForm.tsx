@@ -72,15 +72,44 @@ const EvalueeForm: React.FC = () => {
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
-    if (!formData.first_name.trim()) {
+    
+    // First Name Validation
+    if (!formData.first_name || !formData.first_name.trim()) {
       newErrors.first_name = 'First name is required';
+    } else if (formData.first_name.trim().length < 2) {
+      newErrors.first_name = 'First name must be at least 2 characters';
     }
-    if (!formData.last_name.trim()) {
+
+    // Last Name Validation
+    if (!formData.last_name || !formData.last_name.trim()) {
       newErrors.last_name = 'Last name is required';
+    } else if (formData.last_name.trim().length < 2) {
+      newErrors.last_name = 'Last name must be at least 2 characters';
     }
+
+    // Date of Birth Validation
     if (!formData.date_of_birth) {
       newErrors.date_of_birth = 'Date of birth is required';
+    } else {
+      const birthDate = new Date(formData.date_of_birth);
+      const today = new Date();
+      const minAge = 18; // Minimum age requirement
+      const maxAge = 100; // Maximum age limit
+
+      const age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+
+      if (age < minAge) {
+        newErrors.date_of_birth = `Must be at least ${minAge} years old`;
+      } else if (age > maxAge) {
+        newErrors.date_of_birth = `Age cannot exceed ${maxAge} years`;
+      }
     }
+
     return newErrors;
   };
 
@@ -200,15 +229,18 @@ const EvalueeForm: React.FC = () => {
                 name="date_of_birth"
                 label="Date of Birth"
                 type="date"
-                InputLabelProps={{ shrink: true }}
                 value={formData.date_of_birth}
                 onChange={handleInputChange}
                 error={!!errors.date_of_birth}
                 helperText={errors.date_of_birth}
+                InputLabelProps={{
+                  shrink: true,
+                }}
                 inputProps={{
                   'data-testid': 'date-of-birth-input',
                   'aria-invalid': !!errors.date_of_birth,
-                  'aria-required': 'true'
+                  'aria-required': 'true',
+                  max: new Date().toISOString().split('T')[0], // Prevent future dates
                 }}
               />
             </Grid>
